@@ -1,0 +1,7 @@
+{
+  "name": "waktu-solat-sgr03",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Waktu Solat API — Zon SGR03 (Klang, Kuala Langat), Selangor. Data JAKIM e-Solat 2026.",
+  "engines": { "node": ">=18" }
+}

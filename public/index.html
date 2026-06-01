@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Waktu Solat — SGR03 Klang, Kuala Langat</title>
+<style>
+  :root { --bg:#0d2818; --card:#143821; --gold:#d4af37; --cream:#f4efe6; --muted:#9bbfa6; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: radial-gradient(circle at 50% 0%, #154a2a, #0d2818 70%);
+    color:#f4efe6; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .card {
+    background:var(--card); border:1px solid rgba(212,175,55,.25);
+    border-radius:20px; padding:28px 26px; width:100%; max-width:420px;
+    box-shadow:0 20px 60px rgba(0,0,0,.4);
+  }
+  .zone { color:var(--gold); font-size:13px; letter-spacing:1px; text-transform:uppercase; }
+  .date { font-size:14px; color:var(--muted); margin-top:4px; }
+  .next {
+    margin:22px 0; padding:18px; border-radius:14px;
+    background:linear-gradient(135deg, rgba(212,175,55,.16), rgba(212,175,55,.04));
+    border:1px solid rgba(212,175,55,.3); text-align:center;
+  }
+  .next .label { font-size:12px; color:var(--gold); letter-spacing:1px; text-transform:uppercase; }
+  .next .name { font-size:28px; font-weight:700; margin:4px 0; }
+  .next .cd { font-size:14px; color:var(--muted); }
+  .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+  .slot {
+    display:flex; justify-content:space-between; padding:11px 14px;
+    background:rgba(255,255,255,.03); border-radius:10px; font-size:15px;
+  }
+  .slot.active { background:rgba(212,175,55,.18); border:1px solid rgba(212,175,55,.4); }
+  .slot .t { color:var(--gold); font-variant-numeric:tabular-nums; }
+  .err { color:#ff9b9b; text-align:center; padding:20px; }
+  .toggle { display:flex; align-items:center; gap:8px; margin-top:16px; font-size:13px; color:var(--muted); cursor:pointer; }
+  .toggle input { accent-color:var(--gold); width:16px; height:16px; cursor:pointer; }
+  footer { margin-top:18px; font-size:11px; color:var(--muted); text-align:center; }
+</style>
+</head>
+<body>
+  <div class="card" id="app"><div class="err">Memuatkan…</div></div>
+<script>
+const API = "/api/waktu-solat";
+const SLOTS = [
+  ["imsak","Imsak"],["subuh","Subuh"],["syuruk","Syuruk"],["dhuha","Dhuha"],
+  ["zohor","Zohor"],["asar","Asar"],["maghrib","Maghrib"],["isyak","Isyak"]
+];
+let jugra = false;
+async function load() {
+  const app = document.getElementById("app");
+  try {
+    const r = await fetch(API + "?now" + (jugra ? "&adjust=jugra" : ""));
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Ralat");
+    const t = d.times;
+    app.innerHTML = `
+      <div class="zone">${d.zone} · ${d.location}</div>
+      <div class="date">${d.date} &nbsp;|&nbsp; ${t.day}, ${t.hijri}</div>
+      <div class="next">
+        <div class="label">Waktu Seterusnya</div>
+        <div class="name">${d.next ? d.next.name : "—"}</div>
+        <div class="cd">${d.next ? d.next.time + "  ·  " + d.countdown + " lagi" : ""}</div>
+      </div>
+      <div class="grid">
+        ${SLOTS.map(([k,n]) =>
+          `<div class="slot ${d.current && d.current.prayer===k ? "active":""}">
+             <span>${n}</span><span class="t">${t[k]}</span>
+           </div>`).join("")}
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="jg" ${jugra?"checked":""}/> Pelarasan Puncak Bukit Jugra
+      </label>
+      <footer>Sumber: JAKIM e-Solat + Mufti Selangor · Dhuha: formula falak ⅓</footer>`;
+    document.getElementById("jg").addEventListener("change", (e) => { jugra = e.target.checked; load(); });
+  } catch (e) {
+    app.innerHTML = `<div class="err">${e.message}</div>`;
+  }
+}
+load();
+setInterval(load, 30000); // refresh tiap 30s untuk countdown
+</script>
+</body>
+</html>
