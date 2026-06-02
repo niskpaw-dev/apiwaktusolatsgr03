@@ -18,6 +18,41 @@ const LABELS = {
   zohor: "Zohor", asar: "Asar", maghrib: "Maghrib", isyak: "Isyak",
 };
 
+// --- Hijri (BARU) --------------------------------------------------------
+// Singkatan bulan dalam data JAKIM -> nama penuh Melayu.
+const HIJRI_FULL = {
+  Muh: "Muharram", Saf: "Safar", Raw: "Rabiulawal", Rak: "Rabiulakhir",
+  Jaw: "Jamadilawal", Jak: "Jamadilakhir", Rej: "Rejab", Syb: "Syaaban",
+  Ram: "Ramadan", Syw: "Syawal", Zkh: "Zulkaedah", Zhj: "Zulhijjah",
+};
+
+// "16-Zhj-1447" -> { day, month, month_abbr, year, formatted, raw }
+// Defensif: input bukan-string -> null; format tak dijangka -> { raw } sahaja.
+function parseHijri(str) {
+  if (typeof str !== "string") return null;
+  const m = str.split("-");
+  if (m.length !== 3) return { raw: str };
+  const day = parseInt(m[0], 10);
+  const month = HIJRI_FULL[m[1]] || m[1]; // abbr asing -> guna apa adanya, takkan crash
+  const year = parseInt(m[2], 10);
+  return {
+    day, month, month_abbr: m[1], year,
+    formatted: `${day} ${month} ${year}H`, // cth "16 Zulhijjah 1447H"
+    raw: str,
+  };
+}
+
+// Hijri hari ini + Hijri selepas Maghrib.
+// Selepas Maghrib, tarikh Islam = hari Gregorian esok -> baca baris esok terus
+// dari data JAKIM (rollover bulan/tahun sudah betul, tiada kiraan di sini).
+function hijriPair(day) {
+  const tom = dayByOffset(day.date, 1);
+  return {
+    hijri_today: parseHijri(day.hijri),
+    hijri_maghrib: parseHijri((tom || day).hijri), // fallback: hari terakhir data
+  };
+}
+
 // --- helpers -------------------------------------------------------------
 
 function todayKL() {
@@ -122,14 +157,14 @@ module.exports = (req, res) => {
       const day = byDate[date];
       if (!day) return send(404, { error: "Tarikh di luar julat data", date, ...meta(q) });
       const row = D(day);
-      return send(200, { ...meta(q), date, times: row, ...computeNow(row, nowMinutesKL()) });
+      return send(200, { ...meta(q), date, times: row, ...computeNow(row, nowMinutesKL()), ...hijriPair(day) });
     }
 
     if ("today" in q) {
       const date = todayKL();
       const day = byDate[date];
       if (!day) return send(404, { error: "Tarikh di luar julat data", date, ...meta(q) });
-      return send(200, { ...meta(q), date, times: D(day) });
+      return send(200, { ...meta(q), date, times: D(day), ...hijriPair(day) });
     }
 
     if (q.month) {
@@ -152,7 +187,7 @@ module.exports = (req, res) => {
     }
     const day = byDate[date];
     if (!day) return send(404, { error: "Tarikh di luar julat data (2026 sahaja)", date, ...meta(q) });
-    return send(200, { ...meta(q), date, times: D(day) });
+    return send(200, { ...meta(q), date, times: D(day), ...hijriPair(day) });
   } catch (e) {
     return send(500, { error: "Ralat dalaman", detail: String(e) });
   }
