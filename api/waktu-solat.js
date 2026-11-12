@@ -146,7 +146,7 @@ function meta(q, date) {
   const year = +(date || todayKL()).slice(0, 4);
   const ds = BY_YEAR[year] || LATEST;
   return {
-    zone: DB.zone, zone_name: DB.zone_name, state: DB.state,
+    zone: DB.zone, zone_name: ds.zone_name, state: DB.state,
     year, source: ds.source, timezone: DB.timezone, years_available: YEARS,
     location: adjust === "jugra" ? "Puncak Bukit Jugra" : "SGR03 (umum)",
     dhuha_method: DB.dhuha_method,

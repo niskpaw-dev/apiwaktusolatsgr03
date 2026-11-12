@@ -1,6 +1,6 @@
 {
   "zone": "SGR03",
-  "zone_name": "Klang, Kuala Langat",
+  "zone_name": "Daerah Kuala Langat",
   "state": "Selangor",
   "year": 2027,
   "source": "Takwim Waktu Solat Jabatan Mufti Negeri Selangor 2027 (Daerah Kuala Langat)",
@@ -4778,5 +4778,6 @@
       "maghrib": "19:17",
       "isyak": "20:32"
     }
-  ]
+  ],
+  "note": "Mulai 1 Jan 2027 Selangor beralih dari 3 zon kepada 9 daerah (Jabatan Mufti Negeri Selangor). Kod SGR03 dikekalkan untuk keserasian URL/app."
 }
