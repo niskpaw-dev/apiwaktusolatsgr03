@@ -91,6 +91,11 @@ function dayByOffset(dateStr, offset) {
   return byDate[d.toISOString().slice(0, 10)] || null;
 }
 
+function wantsJugra(q) {
+  return (q.adjust || q.loc || (q.jugra === "1" ? "jugra" : "") || DEFAULT_ADJUST || "").toLowerCase() === "jugra";
+}
+function jugraApplies(q, ds) { return wantsJugra(q) && !!(ds.adjustments && ds.adjustments.jugra); }
+
 // Single source of truth for deriving a final row from base data + query options.
 // Idempotent for defaults (no params) -> returns the baked values unchanged.
 //   ?adjust=jugra                -> Syuruk -1, Maghrib +1 (Bukit Jugra)
@@ -101,13 +106,16 @@ function transform(day, q) {
   let syuruk = toMinutes(day.syuruk);
   let maghrib = toMinutes(day.maghrib);
 
-  const adjust = (q.adjust || q.loc || (q.jugra === "1" ? "jugra" : "") || DEFAULT_ADJUST || "").toLowerCase();
-  if (adjust === "jugra") { syuruk -= 1; maghrib += 1; }
+  const ds = BY_YEAR[+day.date.slice(0, 4)] || LATEST;
+  // Jugra hanya untuk tahun yang datasetnya ada pelarasan (2026 zon lama). 2027 = jadual daerah, tiada.
+  if (jugraApplies(q, ds)) { syuruk -= 1; maghrib += 1; }
 
-  const dm = (q.dhuha || DEFAULT_DHUHA_METHOD).toLowerCase();
+  // Default Dhuha ikut tahun: 2026 = formula 1/3, 2027 = Syuruk + 25 (takwim Mufti).
+  const dd = ds.dhuha_default || { method: DEFAULT_DHUHA_METHOD, offset: DEFAULT_DHUHA_OFFSET };
+  const dm = (q.dhuha || dd.method).toLowerCase();
   let dhuha;
   if (dm === "offset") {
-    const n = Number.isFinite(+q.dhuha_offset) ? +q.dhuha_offset : DEFAULT_DHUHA_OFFSET;
+    const n = Number.isFinite(+q.dhuha_offset) ? +q.dhuha_offset : (dd.offset ?? DEFAULT_DHUHA_OFFSET);
     dhuha = syuruk + n;
   } else {
     dhuha = syuruk + Math.round((syuruk - subuh) / 3); // formula falak 1/3
@@ -142,14 +150,15 @@ function computeNow(day, mins) {
 
 // year/source ikut tahun tarikh yang diminta (2026 = JAKIM, 2027 = Mufti Selangor).
 function meta(q, date) {
-  const adjust = (q.adjust || q.loc || (q.jugra === "1" ? "jugra" : "") || DEFAULT_ADJUST || "").toLowerCase();
   const year = +(date || todayKL()).slice(0, 4);
   const ds = BY_YEAR[year] || LATEST;
+  const jugra = jugraApplies(q, ds);
   return {
     zone: DB.zone, zone_name: ds.zone_name, state: DB.state,
     year, source: ds.source, timezone: DB.timezone, years_available: YEARS,
-    location: adjust === "jugra" ? "Puncak Bukit Jugra" : "SGR03 (umum)",
-    dhuha_method: DB.dhuha_method,
+    location: jugra ? "Puncak Bukit Jugra" : (year >= 2027 ? "Daerah Kuala Langat" : "SGR03 (umum)"),
+    dhuha_method: ds.dhuha_method,
+    ...(wantsJugra(q) && !jugra ? { note: "Pelarasan Bukit Jugra tidak terpakai bagi takwim daerah 2027." } : {}),
   };
 }
 
