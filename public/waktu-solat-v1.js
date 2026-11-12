@@ -11,7 +11,7 @@
 (function (root) {
   'use strict';
 
-  var VERSION = '1.0.0';
+  var VERSION = '1.1.0';
   var PROD = 'https://apiwaktusolatsgr03.vercel.app';
   var TZ = 'Asia/Kuala_Lumpur';
   var ORDER = ['imsak', 'subuh', 'syuruk', 'dhuha', 'zohor', 'asar', 'maghrib', 'isyak'];
@@ -105,8 +105,13 @@
 
   // Label kawasan ikut tahun data (2026: "Klang, Kuala Langat", 2027: "Daerah Kuala Langat")
   function label(data) { return (data && (data.zone_name || data.location)) || ''; }
-  // Sumber rasmi ikut tahun data
-  function source(data) { return (data && data.source) || ''; }
+  // Sumber rasmi ikut tahun data. { short: true } → versi pendek untuk footer/poster.
+  // (2026: "JAKIM e-Solat", 2027: "Jabatan Mufti Negeri Selangor")
+  function source(data, opt) {
+    if (!data) return '';
+    if (opt && opt.short) return data.source_short || data.source || '';
+    return data.source || '';
+  }
 
   // "HH:MM" pada tarikh "YYYY-MM-DD" → Date (masa Malaysia, UTC+8 tetap)
   function at(key, hhmm) {

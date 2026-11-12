@@ -4,6 +4,7 @@
   "state": "Selangor",
   "year": 2026,
   "source": "JAKIM e-Solat (waktu asas) + ketetapan Jabatan Mufti Selangor (Dhuha/Jugra)",
+  "source_short": "JAKIM e-Solat",
   "timezone": "Asia/Kuala_Lumpur",
   "order": [
     "imsak",

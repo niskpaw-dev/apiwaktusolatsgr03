@@ -116,8 +116,10 @@ Sumber tunggal: https://apiwaktusolatsgr03.vercel.app/api/waktu-solat
    WaktuSolat.toDates(data.times)   → { imsak: Date, ... }  (masa Malaysia)
    WaktuSolat.hijriNow(data)        → Hijri yang betul (bertukar selepas Maghrib)
    WaktuSolat.label(data), WaktuSolat.source(data), WaktuSolat.fmt12(date)
+   WaktuSolat.source(data, { short: true })  → sumber pendek untuk footer/poster (atau terus data.source_short)
 2. JANGAN hardcode label kawasan ("Zon SGR03") atau sumber ("JAKIM e-Solat").
    Ambil dari WaktuSolat.label(data) dan WaktuSolat.source(data); ia bertukar ikut tahun.
+   Untuk ruang sempit, guna source_short (2026: "JAKIM e-Solat", 2027: "Jabatan Mufti Negeri Selangor"); jangan potong sendiri.
 3. Kalau terpaksa guna fetch terus: ?month WAJIB dengan &year=. ?today / ?now / ?date=YYYY-MM-DD selamat.
 4. Masa dalam HH:MM 24 jam. Hijri mentah "22-Rej-1448"; guna hijri_today / hijri_maghrib (.formatted) untuk paparan.
 5. Jangan anggap struktur respons akan berubah; ia dikunci oleh ujian kontrak. Perubahan besar = helper v2.
@@ -195,7 +197,7 @@ takde network call langsung.
 
 ## Update tahun depan
 Setiap tahun = satu fail; data tahun lama boleh kekal (peralihan 31 Dis → 1 Jan lancar).
-1. Parse PDF tahun baru → `api/_data/sgr03-YYYY.json` (struktur sama, termasuk `zone_name` & `source`).
+1. Parse PDF tahun baru → `api/_data/sgr03-YYYY.json` (struktur sama, termasuk `zone_name`, `source` & `source_short`).
 2. Tambah satu baris dalam `DATASETS` di `api/waktu-solat.js`.
 3. `npm test` → mesti lulus (ia uji tahun baru secara automatik).
 4. Push → Vercel auto-deploy. Semua app pengguna tak perlu disentuh.

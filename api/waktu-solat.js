@@ -155,7 +155,7 @@ function meta(q, date) {
   const jugra = jugraApplies(q, ds);
   return {
     zone: DB.zone, zone_name: ds.zone_name, state: DB.state,
-    year, source: ds.source, timezone: DB.timezone, years_available: YEARS,
+    year, source: ds.source, source_short: ds.source_short || ds.source, timezone: DB.timezone, years_available: YEARS,
     location: jugra ? "Puncak Bukit Jugra" : (year >= 2027 ? "Daerah Kuala Langat" : "SGR03 (umum)"),
     dhuha_method: ds.dhuha_method,
     ...(wantsJugra(q) && !jugra ? { note: "Pelarasan Bukit Jugra tidak terpakai bagi takwim daerah 2027." } : {}),

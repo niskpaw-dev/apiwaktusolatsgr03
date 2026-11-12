@@ -20,7 +20,8 @@ function call(query) {
 }
 
 function checkMeta(j, where) {
-  for (const k of ["zone", "zone_name", "state", "year", "source", "timezone", "years_available", "location"]) ok(k in j, `${where}: medan meta '${k}' hilang`);
+  for (const k of ["zone", "zone_name", "state", "year", "source", "source_short", "timezone", "years_available", "location"]) ok(k in j, `${where}: medan meta '${k}' hilang`);
+  ok(typeof j.source_short === "string" && j.source_short.length > 0 && j.source_short.length <= 40, `${where}: source_short kosong/terlalu panjang (${j.source_short})`);
   ok(typeof j.zone_name === "string" && j.zone_name.length > 0, `${where}: zone_name kosong`);
   ok(typeof j.source === "string" && j.source.length > 0, `${where}: source kosong`);
 }
@@ -138,6 +139,7 @@ console.log("7. Helper waktu-solat-v1.js");
   ok(m.days.length === 31 && m.year === last, `month(${last}, 1)`);
   ok(W.label(m) === m.zone_name && W.label(m).length > 0, "label() = zone_name");
   ok(W.source(m) === m.source && W.source(m).length > 0, "source() = source");
+  ok(W.source(m, { short: true }) === m.source_short && W.source(m, { short: true }).length < W.source(m).length, "source({short:true}) = source_short");
 
   const d = await W.date(`${last}-01-01`);
   const ds = W.toDates(d.times);
