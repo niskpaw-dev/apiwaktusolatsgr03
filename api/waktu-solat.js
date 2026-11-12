@@ -1,9 +1,20 @@
 // api/waktu-solat.js
 // Waktu Solat API — Zon SGR03 (Klang, Kuala Langat), Selangor
-// Waktu asas: JAKIM e-Solat 2026. Dhuha + pelarasan Bukit Jugra: ketetapan Mufti Selangor.
+// Waktu asas: 2026 = JAKIM e-Solat, 2027 = Takwim Mufti Selangor (Daerah Kuala Langat).
+// Dhuha + pelarasan Bukit Jugra: ketetapan Mufti Selangor.
 // 8 waktu: Imsak, Subuh, Syuruk, Dhuha, Zohor, Asar, Maghrib, Isyak.
 
-const DB = require("./_data/sgr03-2026.json");
+// Setiap tahun = satu fail. Tahun baru: tambah satu baris di sini (data lama boleh kekal).
+const DATASETS = [
+  require("./_data/sgr03-2026.json"),
+  require("./_data/sgr03-2027.json"),
+];
+const BY_YEAR = Object.fromEntries(DATASETS.map((d) => [d.year, d]));
+const LATEST = DATASETS[DATASETS.length - 1];
+// Gabung semua tahun -> peralihan 31 Dis -> 1 Jan (esok, Hijri selepas Maghrib) lancar.
+const DB = { ...LATEST, days: DATASETS.flatMap((d) => d.days) };
+const YEARS = DATASETS.map((d) => d.year);
+const RANGE_TXT = YEARS.length > 1 ? `${YEARS[0]}-${YEARS[YEARS.length - 1]}` : `${YEARS[0]}`;
 
 const TZ = "Asia/Kuala_Lumpur";
 // Default Dhuha = formula falak 1/3 (padan jadual contoh). Override: ?dhuha=offset&dhuha_offset=25
@@ -74,8 +85,9 @@ const fmtMin = (x) => { x = ((x % 1440) + 1440) % 1440; return `${String(Math.fl
 const byDate = Object.fromEntries(DB.days.map((d) => [d.date, d]));
 
 function dayByOffset(dateStr, offset) {
-  const d = new Date(dateStr + "T00:00:00");
-  d.setDate(d.getDate() + offset);
+  // UTC sepenuhnya -> betul tak kira zon waktu server (Vercel UTC, PC +08, dsb.)
+  const d = new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + offset);
   return byDate[d.toISOString().slice(0, 10)] || null;
 }
 
@@ -128,11 +140,14 @@ function computeNow(day, mins) {
   };
 }
 
-function meta(q) {
+// year/source ikut tahun tarikh yang diminta (2026 = JAKIM, 2027 = Mufti Selangor).
+function meta(q, date) {
   const adjust = (q.adjust || q.loc || (q.jugra === "1" ? "jugra" : "") || DEFAULT_ADJUST || "").toLowerCase();
+  const year = +(date || todayKL()).slice(0, 4);
+  const ds = BY_YEAR[year] || LATEST;
   return {
     zone: DB.zone, zone_name: DB.zone_name, state: DB.state,
-    year: DB.year, source: DB.source, timezone: DB.timezone,
+    year, source: ds.source, timezone: DB.timezone, years_available: YEARS,
     location: adjust === "jugra" ? "Puncak Bukit Jugra" : "SGR03 (umum)",
     dhuha_method: DB.dhuha_method,
   };
@@ -155,30 +170,31 @@ module.exports = (req, res) => {
     if ("now" in q) {
       const date = todayKL();
       const day = byDate[date];
-      if (!day) return send(404, { error: "Tarikh di luar julat data", date, ...meta(q) });
+      if (!day) return send(404, { error: "Tarikh di luar julat data", date, ...meta(q, date) });
       const row = D(day);
-      return send(200, { ...meta(q), date, times: row, ...computeNow(row, nowMinutesKL()), ...hijriPair(day) });
+      return send(200, { ...meta(q, date), date, times: row, ...computeNow(row, nowMinutesKL()), ...hijriPair(day) });
     }
 
     if ("today" in q) {
       const date = todayKL();
       const day = byDate[date];
-      if (!day) return send(404, { error: "Tarikh di luar julat data", date, ...meta(q) });
-      return send(200, { ...meta(q), date, times: D(day), ...hijriPair(day) });
+      if (!day) return send(404, { error: "Tarikh di luar julat data", date, ...meta(q, date) });
+      return send(200, { ...meta(q, date), date, times: D(day), ...hijriPair(day) });
     }
 
     if (q.month) {
       const mm = String(q.month).padStart(2, "0");
-      const days = DB.days.filter((d) => d.date.slice(5, 7) === mm).map(D);
-      if (!days.length) return send(400, { error: "Bulan tak sah (guna 01-12)", got: q.month });
-      return send(200, { ...meta(q), month: mm, count: days.length, days });
+      const yy = String(q.year || todayKL().slice(0, 4));
+      const days = DB.days.filter((d) => d.date.slice(0, 7) === `${yy}-${mm}`).map(D);
+      if (!days.length) return send(400, { error: `Bulan/tahun tak sah (bulan 01-12, tahun ${RANGE_TXT})`, got: { month: q.month, year: yy } });
+      return send(200, { ...meta(q, `${yy}-${mm}-01`), year: +yy, month: mm, count: days.length, days });
     }
 
     if (q.from || q.to) {
       const from = q.from || DB.days[0].date;
       const to = q.to || DB.days[DB.days.length - 1].date;
       const days = DB.days.filter((d) => d.date >= from && d.date <= to).map(D);
-      return send(200, { ...meta(q), from, to, count: days.length, days });
+      return send(200, { ...meta(q, from), from, to, count: days.length, days });
     }
 
     const date = q.date || todayKL();
@@ -186,8 +202,8 @@ module.exports = (req, res) => {
       return send(400, { error: "Format tarikh salah. Guna YYYY-MM-DD", got: date });
     }
     const day = byDate[date];
-    if (!day) return send(404, { error: "Tarikh di luar julat data (2026 sahaja)", date, ...meta(q) });
-    return send(200, { ...meta(q), date, times: D(day), ...hijriPair(day) });
+    if (!day) return send(404, { error: `Tarikh di luar julat data (${RANGE_TXT})`, date, ...meta(q, date) });
+    return send(200, { ...meta(q, date), date, times: D(day), ...hijriPair(day) });
   } catch (e) {
     return send(500, { error: "Ralat dalaman", detail: String(e) });
   }
