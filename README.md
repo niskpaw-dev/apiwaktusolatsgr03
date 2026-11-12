@@ -28,6 +28,8 @@ waktu-solat-api/
 │   └── _data/sgr03-2026.json   # dataset 2026 (folder _ = bukan route)
 │   └── _data/sgr03-2027.json   # dataset 2027
 ├── public/index.html           # demo widget (live countdown)
+├── public/waktu-solat-v1.js    # helper kongsi untuk semua app (lihat bawah)
+├── test/contract.js            # ujian kontrak — `npm test` sebelum push
 ├── vercel.json
 └── package.json
 ```
@@ -97,6 +99,66 @@ CORS dibuka (`*`) — boleh call dari mana-mana frontend.
 
 ---
 
+## Panduan Guna API (copy-paste ke chat projek baru)
+
+Setiap kali mula projek baru yang guna waktu solat, tampal blok ni ke chat projek tu:
+
+```
+PANDUAN API WAKTU SOLAT (Niskala Pawaka Dev)
+Sumber tunggal: https://apiwaktusolatsgr03.vercel.app/api/waktu-solat
+(2026 JAKIM e-Solat SGR03 · 2027+ Takwim Mufti Selangor, Daerah Kuala Langat)
+
+1. Guna helper, jangan tulis fetch sendiri:
+   <script src="https://apiwaktusolatsgr03.vercel.app/waktu-solat-v1.js"></script>
+   WaktuSolat.today() / .tomorrow() / .date('2027-01-01')   → { times, hijri_today, hijri_maghrib, zone_name, source, ... }
+   WaktuSolat.month(2027, 1)        → { days: [...] }   (TAHUN WAJIB)
+   WaktuSolat.next()                → { key, name, time: Date, isTomorrow }  (termasuk Imsak esok selepas Isyak)
+   WaktuSolat.toDates(data.times)   → { imsak: Date, ... }  (masa Malaysia)
+   WaktuSolat.hijriNow(data)        → Hijri yang betul (bertukar selepas Maghrib)
+   WaktuSolat.label(data), WaktuSolat.source(data), WaktuSolat.fmt12(date)
+2. JANGAN hardcode label kawasan ("Zon SGR03") atau sumber ("JAKIM e-Solat").
+   Ambil dari WaktuSolat.label(data) dan WaktuSolat.source(data); ia bertukar ikut tahun.
+3. Kalau terpaksa guna fetch terus: ?month WAJIB dengan &year=. ?today / ?now / ?date=YYYY-MM-DD selamat.
+4. Masa dalam HH:MM 24 jam. Hijri mentah "22-Rej-1448"; guna hijri_today / hijri_maghrib (.formatted) untuk paparan.
+5. Jangan anggap struktur respons akan berubah; ia dikunci oleh ujian kontrak. Perubahan besar = helper v2.
+```
+
+## Helper `waktu-solat-v1.js`
+
+Satu fail JS kecil (tanpa dependency) yang dihidang oleh API ni sendiri. Semua logik yang
+selalu jadi punca bug duduk di sini: tarikh Malaysia, Imsak esok selepas Isyak, Hijri selepas
+Maghrib, tahun wajib untuk bulan, label & sumber ikut tahun.
+
+```html
+<script src="https://apiwaktusolatsgr03.vercel.app/waktu-solat-v1.js"></script>
+<script>
+  WaktuSolat.today().then((d) => {
+    const t = WaktuSolat.toDates(d.times);
+    console.log(WaktuSolat.label(d), WaktuSolat.fmt12(t.subuh), WaktuSolat.hijriNow(d).formatted);
+  });
+  WaktuSolat.next().then((n) => console.log(n.name, n.time, n.isTomorrow));
+  WaktuSolat.month(2027, 1).then((m) => console.log(m.days.length, WaktuSolat.source(m)));
+</script>
+```
+
+- Data ikut tarikh disimpan dalam `localStorage` (data satu tarikh tak berubah), jadi app
+  masih boleh papar waktu bila internet putus, asalkan tarikh tu pernah dimuat.
+- Pilihan API boleh dihantar: `WaktuSolat.today({ adjust: 'jugra' })`.
+- **Versi:** `v1` tak akan diubah dengan cara yang memecahkan app. Perubahan besar = fail baru
+  `waktu-solat-v2.js`; app lama terus guna `v1`.
+
+## Ujian kontrak
+
+```bash
+npm test     # node test/contract.js
+```
+
+Semak setiap medan yang app guna masih wujud dan formatnya sama, setiap hari setiap tahun
+lengkap dan waktunya tersusun (Imsak < Subuh < … < Isyak), dan helper v1 berkelakuan betul
+(termasuk Imsak esok pada 31 Dis). **Kalau gagal, jangan push**: perubahan tu akan pecahkan app lain.
+
+---
+
 ## Guna dalam frontend
 
 ### Vanilla JS
@@ -133,8 +195,9 @@ takde network call langsung.
 
 ## Update tahun depan
 Setiap tahun = satu fail; data tahun lama boleh kekal (peralihan 31 Dis → 1 Jan lancar).
-1. Parse PDF tahun baru → `api/_data/sgr03-YYYY.json` (struktur sama).
+1. Parse PDF tahun baru → `api/_data/sgr03-YYYY.json` (struktur sama, termasuk `zone_name` & `source`).
 2. Tambah satu baris dalam `DATASETS` di `api/waktu-solat.js`.
-3. Push → Vercel auto-deploy. Semua app pengguna tak perlu disentuh.
+3. `npm test` → mesti lulus (ia uji tahun baru secara automatik).
+4. Push → Vercel auto-deploy. Semua app pengguna tak perlu disentuh.
 
 _Sumber: JAKIM e-Solat (2026) · Jabatan Mufti Negeri Selangor (2027)._
