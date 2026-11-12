@@ -153,13 +153,34 @@ function meta(q, date) {
   };
 }
 
+// Saat hingga tengah malam KL (untuk cache respons "hari ini").
+function secsToMidnightKL() {
+  const p = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TZ, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }).formatToParts(new Date());
+  const g = (t) => +p.find((x) => x.type === t).value;
+  return 86400 - (g("hour") * 3600 + g("minute") * 60 + g("second"));
+}
+
+// Cache ikut jenis respons:
+//  - ?now            -> berubah setiap minit: cache 30s sahaja
+//  - ?today / default -> sah sampai tengah malam KL sahaja (maks 1 jam), tiada stale
+//  - ?date/?month/julat -> data tetap: cache lama
+function cacheHeader(q) {
+  if ("now" in q) return "public, s-maxage=30";
+  if ("today" in q || !(q.date || q.month || q.from || q.to)) {
+    return `public, s-maxage=${Math.max(1, Math.min(3600, secsToMidnightKL()))}`;
+  }
+  return "public, s-maxage=86400, stale-while-revalidate=604800";
+}
+
 // --- handler -------------------------------------------------------------
 
 module.exports = (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Content-Type", "application/json; charset=utf-8");
-  res.setHeader("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
+  res.setHeader("Cache-Control", cacheHeader(req.query || {}));
   if (req.method === "OPTIONS") return res.status(204).end();
 
   const q = req.query || {};
